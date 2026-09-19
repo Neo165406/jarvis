@@ -149,10 +149,13 @@ h2:first-child{margin-top:4px}
   </section>
 
   <section id="setup" class="view">
-    <h2>Claude</h2>
-    <label for="apiKey">API key</label><input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-...">
-    <label for="model">Model</label><input id="model" placeholder="claude-haiku-4-5-20251001" autocomplete="off">
-    <p class="dim">The key stays on this phone only. Anyone who can open this phone can read it, so set a spending limit for the key in the Anthropic console.</p>
+    <h2>AI brain</h2>
+    <label for="provider">Provider</label><select id="provider"><option value="gemini">Gemini (free key available)</option><option value="claude">Claude</option></select>
+    <label for="geminiKey">Gemini API key</label><input id="geminiKey" type="password" autocomplete="off" placeholder="AIza...">
+    <label for="geminiModel">Gemini model</label><input id="geminiModel" placeholder="gemini-flash-latest" autocomplete="off">
+    <label for="apiKey">Claude API key</label><input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <label for="model">Claude model</label><input id="model" placeholder="claude-haiku-4-5-20251001" autocomplete="off">
+    <p class="dim">Keys stay on this phone only. Anyone who can open this phone can read them, so keep a spending limit on any paid key. Fill in only the provider you use.</p>
     <h2>Voice</h2>
     <label for="lang">Language</label><select id="lang"><option value="bn-BD">Bangla</option><option value="en-US">English</option></select>
     <label class="check"><input id="speak" type="checkbox"> Read replies aloud</label>
@@ -178,6 +181,7 @@ h2:first-child{margin-top:4px}
 <script>
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const DEFAULT_MODEL='claude-haiku-4-5-20251001';
+const DEFAULT_GEMINI='gemini-flash-latest';
 const store={
   get(k,d){try{const v=localStorage.getItem('jv_'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},
   set(k,v){try{localStorage.setItem('jv_'+k,JSON.stringify(v))}catch(e){}}
@@ -227,20 +231,25 @@ const TOOLS=[
   {name:'open_link',description:'Show a tap-to-open button for an app or website. Examples: https://www.youtube.com/results?search_query=guitar+tutorial , https://t.me/username , https://wa.me/8801XXXXXXXXX , geo:0,0?q=pharmacy , tel:+8801XXXXXXXXX',input_schema:{type:'object',properties:{url:{type:'string'}},required:['url']}},
   {name:'run_action',description:'Run one of the user saved actions (PC or home) by its exact name.',input_schema:{type:'object',properties:{name:{type:'string'}},required:['name']}}
 ];
+// Gemini wants upper-case schema types, so convert the same tool list.
+const up=o=>Array.isArray(o)?o.map(up):(o&&typeof o==='object')?Object.fromEntries(Object.entries(o).map(([k,v])=>[k,(k==='type'&&typeof v==='string')?v.toUpperCase():up(v)])):o;
+const GTOOLS=[{functionDeclarations:TOOLS.map(t=>({name:t.name,description:t.description,parameters:up(t.input_schema)}))}];
 async function runTool(name,i){
   if(name==='set_reminder')return addReminder(i.text,Date.now()+Number(i.minutes_from_now)*60000);
   if(name==='open_link')return linkBtn(String(i.url))?'A tap-to-open button is now shown to the user.':'That kind of link is not allowed.';
   if(name==='run_action')return runAction(i.name);
   return 'Unknown tool';
 }
-async function ask(text){
+function sysPrompt(){
+  const acts=actions().map(a=>a.name).join(', ')||'none';
+  return 'You are JARVIS, a calm, concise personal assistant on the user\'s Android phone. Address the user as "Sir". Reply in the language the user writes in (Bangla or English). Keep replies short because they are often read aloud, and do not use markdown. Current time: '+new Date().toString()+'. Saved actions the user can trigger: '+acts+'. Use set_reminder for reminders, open_link to open apps or sites, run_action for saved actions.';
+}
+async function askClaude(text){
   const key=store.get('apiKey','');
   if(!key)throw new Error('Add your Claude API key in Setup first.');
   const msgs=[...hist,{role:'user',content:text}];
-  const acts=actions().map(a=>a.name).join(', ')||'none';
-  const system='You are JARVIS, a calm, concise personal assistant on the user\'s Android phone. Address the user as "Sir". Reply in the language the user writes in (Bangla or English). Keep replies short because they are often read aloud, and do not use markdown. Current time: '+new Date().toString()+'. Saved actions the user can trigger: '+acts+'. Use set_reminder for reminders, open_link to open apps or sites, run_action for saved actions.';
   for(let i=0;i<4;i++){
-    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:store.get('model','')||DEFAULT_MODEL,max_tokens:700,system,tools:TOOLS,messages:msgs})});
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:store.get('model','')||DEFAULT_MODEL,max_tokens:700,system:sysPrompt(),tools:TOOLS,messages:msgs})});
     if(!r.ok){let m=String(r.status);try{m=(await r.json()).error.message}catch(e){}throw new Error('Claude error: '+m)}
     const d=await r.json();
     if(d.stop_reason!=='tool_use')return d.content.filter(b=>b.type==='text').map(b=>b.text).join('\n')||'Done, Sir.';
@@ -254,6 +263,32 @@ async function ask(text){
     msgs.push({role:'user',content:results});
   }
   return 'Done, Sir.';
+}
+async function askGemini(text){
+  const key=store.get('geminiKey','');
+  if(!key)throw new Error('Add your Gemini API key in Setup first.');
+  const model=store.get('geminiModel','')||DEFAULT_GEMINI;
+  const contents=[...hist.map(m=>({role:m.role==='user'?'user':'model',parts:[{text:m.content}]})),{role:'user',parts:[{text}]}];
+  for(let i=0;i<4;i++){
+    const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent',{method:'POST',headers:{'content-type':'application/json','x-goog-api-key':key},body:JSON.stringify({systemInstruction:{parts:[{text:sysPrompt()}]},contents,tools:GTOOLS})});
+    let d={};try{d=await r.json()}catch(e){}
+    if(!r.ok)throw new Error('Gemini error: '+((d.error&&d.error.message)||r.status));
+    const c=d.candidates&&d.candidates[0];
+    if(!c||!c.content||!c.content.parts)throw new Error('Gemini gave no answer'+((d.promptFeedback&&d.promptFeedback.blockReason)?' ('+d.promptFeedback.blockReason+')':'')+'.');
+    const calls=c.content.parts.filter(p=>p.functionCall);
+    if(!calls.length)return c.content.parts.filter(p=>p.text).map(p=>p.text).join('\n')||'Done, Sir.';
+    contents.push({role:'model',parts:c.content.parts});
+    const res=[];
+    for(const p of calls){
+      let out;try{out=await runTool(p.functionCall.name,p.functionCall.args||{})}catch(e){out='Error: '+e.message}
+      res.push({functionResponse:{name:p.functionCall.name,response:{result:String(out)}}});
+    }
+    contents.push({role:'user',parts:res});
+  }
+  return 'Done, Sir.';
+}
+async function ask(text){
+  return (store.get('provider','')||'gemini')==='claude'?askClaude(text):askGemini(text);
 }
 async function send(text){
   text=(text||'').trim();if(!text||busy)return;
@@ -425,14 +460,16 @@ async function hudRefresh(){
 }
 
 /* ---------- setup and push ---------- */
-const FIELDS=['apiKey','model','workerUrl','token'];
+const FIELDS=['geminiKey','geminiModel','apiKey','model','workerUrl','token'];
 function loadSetup(){
   FIELDS.forEach(k=>$('#'+k).value=store.get(k,'')||'');
+  $('#provider').value=store.get('provider','')||'gemini';
   $('#lang').value=store.get('lang','')||'bn-BD';
   $('#speak').checked=store.get('speak',true);
 }
 function saveSetup(){
   FIELDS.forEach(k=>{const v=$('#'+k).value.trim();store.set(k,k==='workerUrl'?v.replace(/\/$/,''):v)});
+  store.set('provider',$('#provider').value);
   store.set('lang',$('#lang').value);store.set('speak',$('#speak').checked);
   sendCfg();
 }
@@ -469,7 +506,7 @@ $('#install').onclick=async()=>{if(!deferred)return;deferred.prompt();await defe
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(sendCfg).catch(()=>{});
 loadSetup();armLocal();renderActions();renderReminders();
 hist.slice(-10).forEach(m=>bubble(m.content,m.role==='user'?'u':'j'));
-if(!hist.length)bubble('Online, Sir. Add your Claude API key in Setup, then tap the ring and speak.','j');
+if(!hist.length)bubble('Online, Sir. Add your Gemini or Claude API key in Setup, then tap the ring and speak.','j');
 </script>
 </body>
 </html>
