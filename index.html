@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#06161d">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<title>Jarvis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#06161d;--panel:#0b232d;--line:#1b4453;--tx:#d6edf1;--dim:#7fa6b0;--cy:#3fd8ee;--am:#f2b04a;--rd:#ff7a7a;font-family:"Oxanium",system-ui,-apple-system,"Noto Sans Bengali",sans-serif}
+*{box-sizing:border-box;margin:0}
+[hidden]{display:none!important}
+html,body{height:100%;background:var(--bg);color:var(--tx);font-size:16px}
+body{display:flex;flex-direction:column;height:100dvh;overflow:hidden;padding-top:env(safe-area-inset-top)}
+main{flex:1;min-height:0;position:relative}
+.view{position:absolute;inset:0;display:none;flex-direction:column;overflow-y:auto;padding:16px}
+.view.on{display:flex}
+#talk{overflow:hidden}
+nav{display:grid;grid-template-columns:repeat(5,1fr);border-top:1px solid var(--line);background:var(--panel);padding-bottom:env(safe-area-inset-bottom)}
+nav button{background:none;border:0;color:var(--dim);font:inherit;font-size:13px;padding:14px 0 12px;position:relative}
+nav button.on{color:var(--cy)}
+nav button.on::before{content:"";position:absolute;top:-1px;left:25%;right:25%;height:2px;background:var(--cy)}
+:focus-visible{outline:2px solid var(--am);outline-offset:2px}
+
+#ring{width:184px;height:184px;margin:4px auto 6px;flex:none;border:0;background:none;cursor:pointer;-webkit-tap-highlight-color:transparent}
+#ring svg{width:100%;height:100%;display:block}
+.rA,.rB,.core{transform-box:fill-box;transform-origin:center}
+.rA{fill:none;stroke:var(--line);stroke-width:2;stroke-dasharray:6 10;animation:spin 30s linear infinite}
+.rB{fill:none;stroke:var(--cy);stroke-width:3;stroke-dasharray:70 30;animation:spin 16s linear infinite reverse}
+.rC{fill:none;stroke:var(--line);stroke-width:2}
+.core{fill:var(--line);transition:fill .3s}
+#ring[data-s=listening] .core{fill:var(--cy);animation:pulse 1s ease-in-out infinite}
+#ring[data-s=thinking] .rB{animation-duration:2.4s}
+#ring[data-s=speaking] .core{fill:var(--am);animation:pulse .7s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes pulse{50%{transform:scale(1.28)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.status{text-align:center;color:var(--dim);font-size:14px;margin-bottom:10px}
+
+#log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding:2px 0 10px}
+.m{max-width:88%;padding:10px 12px;line-height:1.45;font-size:15px;border:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere}
+.m.u{align-self:flex-end;background:var(--panel)}
+.m.j{align-self:flex-start;border-left:2px solid var(--cy)}
+.m.e{align-self:flex-start;border-color:var(--rd);color:var(--rd)}
+.open{display:inline-block;padding:8px 12px;border:1px solid var(--cy);color:var(--cy);text-decoration:none}
+#composer{display:flex;gap:8px;padding-top:8px}
+
+input,select{background:var(--panel);border:1px solid var(--line);color:var(--tx);padding:12px;font:inherit;font-size:16px;width:100%;border-radius:0}
+label{display:block;color:var(--dim);font-size:13px;margin:12px 0 4px}
+label.check{display:flex;align-items:center;gap:10px;color:var(--tx);font-size:15px}
+label.check input{width:20px;height:20px}
+h2{font-size:15px;font-weight:600;color:var(--dim);margin:20px 0 8px}
+h2:first-child{margin-top:4px}
+.pri{background:var(--cy);color:#04222a;border:0;padding:12px 16px;font:inherit;font-weight:600}
+.ghost{background:none;border:1px solid var(--line);color:var(--cy);padding:10px 12px;font:inherit}
+.btns{display:flex;gap:10px;margin-top:12px}
+.btns>*{flex:1}
+.dim{color:var(--dim);font-size:14px;line-height:1.5;margin-top:8px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips a{padding:10px 14px;border:1px solid var(--line);background:var(--panel);color:var(--tx);text-decoration:none}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row small{display:block;color:var(--dim);margin-top:2px}
+.act{flex:1;text-align:left;background:var(--panel);border:1px solid var(--line);color:var(--tx);padding:12px;font:inherit}
+
+.clock{font-size:54px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.05}
+.date{color:var(--dim);margin:4px 0 16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cell{position:relative;padding:12px;border:1px solid var(--line);background:var(--panel)}
+.cell::before{content:"";position:absolute;top:-1px;left:-1px;width:10px;height:10px;border-top:2px solid var(--cy);border-left:2px solid var(--cy)}
+.cell small{color:var(--dim);font-size:13px}
+.cell b{display:block;font-size:22px;font-weight:600;margin-top:4px}
+.cell b small{font-size:14px;font-weight:400}
+.cell .ghost{margin-top:10px}
+.wide{grid-column:1/-1}
+.bar{display:block;height:4px;background:var(--line);margin-top:8px}
+.bar u{display:block;height:100%;width:0;background:var(--cy);text-decoration:none}
+#toast{position:fixed;left:16px;right:16px;bottom:84px;background:var(--panel);border:1px solid var(--cy);padding:12px;opacity:0;pointer-events:none;transition:opacity .2s;z-index:9}
+#toast.on{opacity:1}
+</style>
+</head>
+<body>
+<main>
+  <section id="talk" class="view on">
+    <button id="ring" data-s="idle" aria-label="Talk to Jarvis">
+      <svg viewBox="0 0 200 200" aria-hidden="true">
+        <circle class="rA" cx="100" cy="100" r="92"/>
+        <circle class="rB" cx="100" cy="100" r="72"/>
+        <circle class="rC" cx="100" cy="100" r="50"/>
+        <circle class="core" cx="100" cy="100" r="26"/>
+      </svg>
+    </button>
+    <p id="status" class="status">Tap the ring and speak</p>
+    <div id="log" aria-live="polite"></div>
+    <form id="composer">
+      <input id="msg" placeholder="Type a message" autocomplete="off">
+      <button class="pri" type="submit">Send</button>
+    </form>
+  </section>
+
+  <section id="hud" class="view">
+    <div id="clock" class="clock"></div>
+    <div id="date" class="date"></div>
+    <div class="grid">
+      <div class="cell wide"><small>Weather</small><b id="wx">-</b><button id="locate" class="ghost" type="button">Locate me</button></div>
+      <div class="cell"><small>Phone battery</small><b id="bat">-</b><i class="bar"><u id="batbar"></u></i></div>
+      <div class="cell"><small>Connection</small><b id="net">-</b></div>
+      <div class="cell"><small>This device</small><b id="dev" style="font-size:16px">-</b></div>
+      <div class="cell"><small>Next reminder</small><b id="next" style="font-size:16px">-</b></div>
+    </div>
+  </section>
+
+  <section id="actions" class="view">
+    <h2>Open an app</h2>
+    <div class="chips">
+      <a href="https://www.youtube.com" target="_blank" rel="noopener">YouTube</a>
+      <a href="https://t.me/" target="_blank" rel="noopener">Telegram</a>
+      <a href="https://wa.me/" target="_blank" rel="noopener">WhatsApp</a>
+      <a href="https://maps.google.com" target="_blank" rel="noopener">Maps</a>
+    </div>
+    <h2>My PC</h2>
+    <div id="a-pc"></div>
+    <h2>My home</h2>
+    <div id="a-home"></div>
+    <h2>Add an action</h2>
+    <form id="aform">
+      <label for="aname">Name</label><input id="aname" placeholder="Living room light on" required>
+      <label for="agroup">Group</label><select id="agroup"><option value="home">My home</option><option value="pc">My PC</option></select>
+      <label for="aurl">Web address</label><input id="aurl" type="url" inputmode="url" placeholder="https://..." required>
+      <label for="amethod">Method</label><select id="amethod"><option>POST</option><option>GET</option></select>
+      <div class="btns"><button class="pri" type="submit">Save action</button></div>
+    </form>
+    <p class="dim">An action calls a web address when you tap it, or when you ask Jarvis to run it by name. Use https addresses, such as a Home Assistant webhook or a tunnel to your PC. Chrome blocks plain http.</p>
+  </section>
+
+  <section id="remind" class="view">
+    <h2>Upcoming</h2>
+    <div id="rlist"></div>
+    <h2>Add a reminder</h2>
+    <form id="rform">
+      <label for="rtext">What should I remind you about?</label><input id="rtext" required>
+      <label for="rwhen">When</label><input id="rwhen" type="datetime-local" required>
+      <div class="btns"><button class="pri" type="submit">Add reminder</button></div>
+    </form>
+    <p class="dim">You can also just say it: "remind me in 20 minutes to call Mom".</p>
+  </section>
+
+  <section id="setup" class="view">
+    <h2>Claude</h2>
+    <label for="apiKey">API key</label><input id="apiKey" type="password" autocomplete="off" placeholder="sk-ant-...">
+    <label for="model">Model</label><input id="model" placeholder="claude-haiku-4-5-20251001" autocomplete="off">
+    <p class="dim">The key stays on this phone only. Anyone who can open this phone can read it, so set a spending limit for the key in the Anthropic console.</p>
+    <h2>Voice</h2>
+    <label for="lang">Language</label><select id="lang"><option value="bn-BD">Bangla</option><option value="en-US">English</option></select>
+    <label class="check"><input id="speak" type="checkbox"> Read replies aloud</label>
+    <h2>Reminder server</h2>
+    <label for="workerUrl">Server address</label><input id="workerUrl" type="url" inputmode="url" placeholder="https://jarvis.yourname.workers.dev">
+    <label for="token">Access token</label><input id="token" type="password" autocomplete="off">
+    <div class="btns"><button id="save" class="pri" type="button">Save settings</button></div>
+    <div class="btns"><button id="push" class="ghost" type="button">Turn on notifications</button><button id="test" class="ghost" type="button">Send a test</button></div>
+    <div class="btns"><button id="install" class="ghost" type="button" hidden>Install app</button></div>
+    <p id="setupmsg" class="dim"></p>
+  </section>
+</main>
+
+<nav>
+  <button class="on" data-v="talk">Talk</button>
+  <button data-v="hud">HUD</button>
+  <button data-v="actions">Actions</button>
+  <button data-v="remind">Reminders</button>
+  <button data-v="setup">Setup</button>
+</nav>
+<div id="toast" role="status"></div>
+
+<script>
+const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+const DEFAULT_MODEL='claude-haiku-4-5-20251001';
+const store={
+  get(k,d){try{const v=localStorage.getItem('jv_'+k);return v===null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem('jv_'+k,JSON.stringify(v))}catch(e){}}
+};
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(t){const el=$('#toast');el.textContent=t;el.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('on'),3200)}
+const fmt=ts=>new Date(ts).toLocaleString('en-GB',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+
+/* ---------- tabs ---------- */
+function show(id){
+  $$('.view').forEach(v=>v.classList.toggle('on',v.id===id));
+  $$('nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===id));
+  if(id==='hud')hudRefresh();
+  if(id==='remind')renderReminders();
+}
+$$('nav button').forEach(b=>b.onclick=()=>show(b.dataset.v));
+
+/* ---------- ring state ---------- */
+let state='idle';
+const LABEL={idle:'Tap the ring and speak',listening:'Listening...',thinking:'Thinking...',speaking:'Speaking (tap to stop)'};
+function setState(s){state=s;$('#ring').dataset.s=s;$('#status').textContent=LABEL[s]}
+
+/* ---------- worker helper ---------- */
+const hasWorker=()=>!!(store.get('workerUrl','')&&store.get('token',''));
+async function W(path,o={}){
+  const base=(store.get('workerUrl','')||'').replace(/\/$/,'');
+  if(!base)throw new Error('Set the server address in Setup first.');
+  const r=await fetch(base+path,{...o,headers:{'content-type':'application/json',authorization:'Bearer '+store.get('token',''),...(o.headers||{})}});
+  let d={};try{d=await r.json()}catch(e){}
+  if(!r.ok)throw new Error(d.error||('Server error '+r.status));
+  return d;
+}
+
+/* ---------- chat ---------- */
+const hist=store.get('hist',[]);
+let busy=false;
+function bubble(text,cls){const d=document.createElement('div');d.className='m '+cls;d.textContent=text;$('#log').appendChild(d);$('#log').scrollTop=1e9;return d}
+function linkBtn(url){
+  if(!/^(https?|tg|geo|tel|mailto|sms|whatsapp):/i.test(url))return false;
+  const d=document.createElement('div');d.className='m j';
+  const a=document.createElement('a');a.className='open';a.href=url;a.target='_blank';a.rel='noopener';
+  a.textContent='Open '+url.replace(/^https?:\/\//,'').slice(0,40);
+  d.appendChild(a);$('#log').appendChild(d);$('#log').scrollTop=1e9;return true;
+}
+const TOOLS=[
+  {name:'set_reminder',description:'Schedule a notification reminder for the user.',input_schema:{type:'object',properties:{text:{type:'string',description:'What to remind about'},minutes_from_now:{type:'number',description:'Minutes from now until the reminder. Work it out from the current time.'}},required:['text','minutes_from_now']}},
+  {name:'open_link',description:'Show a tap-to-open button for an app or website. Examples: https://www.youtube.com/results?search_query=guitar+tutorial , https://t.me/username , https://wa.me/8801XXXXXXXXX , geo:0,0?q=pharmacy , tel:+8801XXXXXXXXX',input_schema:{type:'object',properties:{url:{type:'string'}},required:['url']}},
+  {name:'run_action',description:'Run one of the user saved actions (PC or home) by its exact name.',input_schema:{type:'object',properties:{name:{type:'string'}},required:['name']}}
+];
+async function runTool(name,i){
+  if(name==='set_reminder')return addReminder(i.text,Date.now()+Number(i.minutes_from_now)*60000);
+  if(name==='open_link')return linkBtn(String(i.url))?'A tap-to-open button is now shown to the user.':'That kind of link is not allowed.';
+  if(name==='run_action')return runAction(i.name);
+  return 'Unknown tool';
+}
+async function ask(text){
+  const key=store.get('apiKey','');
+  if(!key)throw new Error('Add your Claude API key in Setup first.');
+  const msgs=[...hist,{role:'user',content:text}];
+  const acts=actions().map(a=>a.name).join(', ')||'none';
+  const system='You are JARVIS, a calm, concise personal assistant on the user\'s Android phone. Address the user as "Sir". Reply in the language the user writes in (Bangla or English). Keep replies short because they are often read aloud, and do not use markdown. Current time: '+new Date().toString()+'. Saved actions the user can trigger: '+acts+'. Use set_reminder for reminders, open_link to open apps or sites, run_action for saved actions.';
+  for(let i=0;i<4;i++){
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:store.get('model','')||DEFAULT_MODEL,max_tokens:700,system,tools:TOOLS,messages:msgs})});
+    if(!r.ok){let m=String(r.status);try{m=(await r.json()).error.message}catch(e){}throw new Error('Claude error: '+m)}
+    const d=await r.json();
+    if(d.stop_reason!=='tool_use')return d.content.filter(b=>b.type==='text').map(b=>b.text).join('\n')||'Done, Sir.';
+    msgs.push({role:'assistant',content:d.content});
+    const results=[];
+    for(const b of d.content){
+      if(b.type!=='tool_use')continue;
+      let out;try{out=await runTool(b.name,b.input)}catch(e){out='Error: '+e.message}
+      results.push({type:'tool_result',tool_use_id:b.id,content:String(out)});
+    }
+    msgs.push({role:'user',content:results});
+  }
+  return 'Done, Sir.';
+}
+async function send(text){
+  text=(text||'').trim();if(!text||busy)return;
+  busy=true;$('#msg').value='';bubble(text,'u');setState('thinking');
+  try{
+    const reply=await ask(text);
+    bubble(reply,'j');
+    hist.push({role:'user',content:text},{role:'assistant',content:reply});
+    while(hist.length>24)hist.splice(0,2);
+    store.set('hist',hist);
+    setState('idle');say(reply);
+  }catch(e){bubble(e.message,'e');setState('idle')}
+  busy=false;
+}
+$('#composer').onsubmit=e=>{e.preventDefault();send($('#msg').value)};
+
+/* ---------- voice ---------- */
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+function listen(){
+  if(!SR){toast('Voice input needs Chrome on Android.');return}
+  const r=new SR();
+  r.lang=store.get('lang','')||'bn-BD';r.interimResults=true;r.maxAlternatives=1;
+  let sent=false;
+  r.onstart=()=>setState('listening');
+  r.onresult=e=>{
+    const t=[...e.results].map(x=>x[0].transcript).join('');
+    $('#msg').value=t;
+    if(e.results[e.results.length-1].isFinal&&!sent){sent=true;r.stop();send(t)}
+  };
+  r.onerror=e=>{if(state==='listening')setState('idle');toast(e.error==='not-allowed'?'Allow the microphone for this site in Chrome.':'Mic: '+e.error)};
+  r.onend=()=>{if(state==='listening')setState('idle')};
+  try{r.start()}catch(e){setState('idle')}
+}
+function say(t){
+  if(!(store.get('speak',true))||!('speechSynthesis' in window))return;
+  speechSynthesis.cancel();
+  const u=new SpeechSynthesisUtterance(t);u.lang=store.get('lang','')||'bn-BD';
+  u.onstart=()=>setState('speaking');u.onend=()=>{if(state==='speaking')setState('idle')};u.onerror=u.onend;
+  speechSynthesis.speak(u);
+}
+$('#ring').onclick=()=>{
+  if(state==='speaking'){speechSynthesis.cancel();setState('idle');return}
+  if(state==='idle')listen();
+};
+
+/* ---------- reminders ---------- */
+let timers=[];
+function notify(text){
+  if('Notification' in window&&Notification.permission==='granted'&&navigator.serviceWorker){
+    navigator.serviceWorker.ready.then(r=>r.showNotification('Jarvis',{body:text,icon:'icon.svg',vibrate:[200,100,200]}));
+  }else toast(text);
+}
+function armLocal(){
+  timers.forEach(clearTimeout);timers=[];
+  const now=Date.now(),keep=[];
+  store.get('local',[]).forEach(r=>{
+    const ms=r.due-now;
+    if(ms<=0){notify(r.text);return}
+    keep.push(r);
+    timers.push(setTimeout(()=>{notify(r.text);store.set('local',store.get('local',[]).filter(x=>x.id!==r.id));renderReminders()},ms));
+  });
+  store.set('local',keep);
+}
+async function addReminder(text,due){
+  const id=(crypto.randomUUID?crypto.randomUUID():String(Date.now()));
+  if(hasWorker())await W('/remind',{method:'POST',body:JSON.stringify({id,text,due})});
+  else{const l=store.get('local',[]);l.push({id,text,due});store.set('local',l);armLocal()}
+  renderReminders();
+  return hasWorker()?('Reminder set for '+fmt(due)+'.'):('Reminder set for '+fmt(due)+' (saved on this phone only, so it works while the app is open).');
+}
+async function listReminders(){
+  if(hasWorker()){try{return (await W('/reminders')).items||[]}catch(e){toast(e.message);return []}}
+  return store.get('local',[]);
+}
+async function delReminder(id){
+  try{
+    if(hasWorker())await W('/remind?id='+encodeURIComponent(id),{method:'DELETE'});
+    else{store.set('local',store.get('local',[]).filter(r=>r.id!==id));armLocal()}
+  }catch(e){toast(e.message)}
+  renderReminders();
+}
+async function renderReminders(){
+  const box=$('#rlist');
+  const items=(await listReminders()).sort((a,b)=>a.due-b.due);
+  box.innerHTML=items.length?'':'<p class="dim">No reminders yet. Add one below or ask Jarvis.</p>';
+  items.forEach(r=>{
+    const row=document.createElement('div');row.className='row';
+    row.innerHTML='<span><b>'+esc(r.text)+'</b><small>'+fmt(r.due)+'</small></span>';
+    const x=document.createElement('button');x.className='ghost';x.type='button';x.textContent='Delete';x.onclick=()=>delReminder(r.id);
+    row.appendChild(x);box.appendChild(row);
+  });
+}
+$('#rform').onsubmit=async e=>{
+  e.preventDefault();
+  const text=$('#rtext').value.trim(),due=new Date($('#rwhen').value).getTime();
+  if(!text||!due||due<=Date.now()){toast('Pick a time in the future.');return}
+  try{toast(await addReminder(text,due));$('#rtext').value=''}catch(err){toast(err.message)}
+};
+
+/* ---------- actions (PC and home) ---------- */
+const actions=()=>store.get('actions',[]);
+async function runAction(name){
+  const a=actions().find(x=>x.name.toLowerCase()===String(name).toLowerCase());
+  if(!a)throw new Error('No saved action called "'+name+'".');
+  try{await fetch(a.url,{method:a.method||'GET',mode:'no-cors'})}
+  catch(e){throw new Error('Could not reach "'+a.name+'". Check that the address is https and online.')}
+  return a.name+' sent.';
+}
+function renderActions(){
+  const list=actions();
+  ['pc','home'].forEach(g=>{
+    const box=$('#a-'+g);box.innerHTML='';
+    let n=0;
+    list.forEach((a,i)=>{
+      if(a.group!==g)return;n++;
+      const row=document.createElement('div');row.className='row';
+      const b=document.createElement('button');b.className='act';b.type='button';b.textContent=a.name;
+      b.onclick=async()=>{try{toast(await runAction(a.name))}catch(e){toast(e.message)}};
+      const x=document.createElement('button');x.className='ghost';x.type='button';x.textContent='Remove';
+      x.onclick=()=>{store.set('actions',actions().filter((_,k)=>k!==i));renderActions()};
+      row.append(b,x);box.appendChild(row);
+    });
+    if(!n)box.innerHTML='<p class="dim">Nothing saved yet.</p>';
+  });
+}
+$('#aform').onsubmit=e=>{
+  e.preventDefault();
+  const url=$('#aurl').value.trim();
+  if(!/^https:\/\//i.test(url)){toast('Use an https address.');return}
+  const l=actions();l.push({name:$('#aname').value.trim(),group:$('#agroup').value,url,method:$('#amethod').value});
+  store.set('actions',l);e.target.reset();renderActions();toast('Action saved.');
+};
+
+/* ---------- HUD ---------- */
+function tick(){
+  const n=new Date();
+  $('#clock').textContent=n.toLocaleTimeString('en-GB');
+  $('#date').textContent=n.toLocaleDateString('en-GB',{weekday:'long',day:'numeric',month:'long'});
+}
+setInterval(tick,1000);tick();
+const WMO={0:'clear',1:'mostly clear',2:'partly cloudy',3:'overcast',45:'fog',48:'fog',51:'light drizzle',53:'drizzle',55:'heavy drizzle',61:'light rain',63:'rain',65:'heavy rain',71:'light snow',73:'snow',75:'heavy snow',80:'showers',81:'showers',82:'heavy showers',95:'thunderstorm',96:'thunderstorm',99:'thunderstorm'};
+async function weather(){
+  const c=store.get('coords',null);
+  if(!c){$('#wx').textContent='Tap Locate me';return}
+  try{
+    const r=await fetch('https://api.open-meteo.com/v1/forecast?latitude='+c.lat+'&longitude='+c.lon+'&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m&timezone=auto');
+    const d=(await r.json()).current;
+    $('#wx').innerHTML=Math.round(d.temperature_2m)+'&deg;C <small>'+(WMO[d.weather_code]||'')+', feels like '+Math.round(d.apparent_temperature)+'&deg;, wind '+Math.round(d.wind_speed_10m)+' km/h</small>';
+  }catch(e){$('#wx').textContent='Weather needs internet'}
+}
+$('#locate').onclick=()=>{
+  if(!navigator.geolocation){toast('Location is not available.');return}
+  navigator.geolocation.getCurrentPosition(p=>{store.set('coords',{lat:+p.coords.latitude.toFixed(2),lon:+p.coords.longitude.toFixed(2)});weather()},e=>toast('Location blocked: '+e.message),{timeout:10000});
+};
+async function hudRefresh(){
+  if(navigator.getBattery){
+    try{
+      const b=await navigator.getBattery();
+      const set=()=>{$('#bat').textContent=Math.round(b.level*100)+'%'+(b.charging?' charging':'');$('#batbar').style.width=(b.level*100)+'%'};
+      set();b.onlevelchange=set;b.onchargingchange=set;
+    }catch(e){$('#bat').textContent='n/a'}
+  }else $('#bat').textContent='n/a';
+  const c=navigator.connection;
+  $('#net').textContent=navigator.onLine?((c&&c.effectiveType)?c.effectiveType.toUpperCase():'Online'):'Offline';
+  $('#dev').textContent=(navigator.deviceMemory?navigator.deviceMemory+' GB, ':'')+(navigator.hardwareConcurrency||'?')+' cores';
+  weather();
+  const first=(await listReminders()).sort((a,b)=>a.due-b.due)[0];
+  $('#next').textContent=first?(first.text+', '+fmt(first.due)):'None scheduled';
+}
+
+/* ---------- setup and push ---------- */
+const FIELDS=['apiKey','model','workerUrl','token'];
+function loadSetup(){
+  FIELDS.forEach(k=>$('#'+k).value=store.get(k,'')||'');
+  $('#lang').value=store.get('lang','')||'bn-BD';
+  $('#speak').checked=store.get('speak',true);
+}
+function saveSetup(){
+  FIELDS.forEach(k=>{const v=$('#'+k).value.trim();store.set(k,k==='workerUrl'?v.replace(/\/$/,''):v)});
+  store.set('lang',$('#lang').value);store.set('speak',$('#speak').checked);
+  sendCfg();
+}
+function sendCfg(){
+  if(!('serviceWorker' in navigator))return;
+  navigator.serviceWorker.ready.then(r=>{if(r.active)r.active.postMessage({type:'cfg',url:store.get('workerUrl',''),token:store.get('token','')})});
+}
+function b64ToU8(s){s=s.replace(/-/g,'+').replace(/_/g,'/');const raw=atob(s+'='.repeat((4-s.length%4)%4));return Uint8Array.from(raw,c=>c.charCodeAt(0))}
+async function enablePush(){
+  if(!('serviceWorker' in navigator)||!('PushManager' in window))throw new Error('This browser cannot receive push notifications.');
+  const perm=await Notification.requestPermission();
+  if(perm!=='granted')throw new Error('Notifications are blocked. Allow them in Chrome site settings.');
+  const reg=await navigator.serviceWorker.ready;
+  const {publicKey}=await W('/vapid');
+  let sub=await reg.pushManager.getSubscription();
+  if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(publicKey)});
+  await W('/subscribe',{method:'POST',body:JSON.stringify(sub)});
+  sendCfg();
+}
+$('#save').onclick=()=>{saveSetup();toast('Settings saved.')};
+$('#push').onclick=async()=>{
+  const m=$('#setupmsg');saveSetup();
+  try{m.textContent='Working...';await enablePush();m.textContent='Notifications are on. Tap Send a test to check.'}catch(e){m.textContent=e.message}
+};
+$('#test').onclick=async()=>{
+  const m=$('#setupmsg');saveSetup();
+  try{const r=await W('/test',{method:'POST'});m.textContent='Test sent (status '+r.status+'). It should arrive in a few seconds.'}catch(e){m.textContent=e.message}
+};
+let deferred=null;
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;$('#install').hidden=false});
+$('#install').onclick=async()=>{if(!deferred)return;deferred.prompt();await deferred.userChoice;deferred=null;$('#install').hidden=true};
+
+/* ---------- start ---------- */
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').then(sendCfg).catch(()=>{});
+loadSetup();armLocal();renderActions();renderReminders();
+hist.slice(-10).forEach(m=>bubble(m.content,m.role==='user'?'u':'j'));
+if(!hist.length)bubble('Online, Sir. Add your Claude API key in Setup, then tap the ring and speak.','j');
+</script>
+</body>
+</html>

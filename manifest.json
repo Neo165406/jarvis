@@ -1,0 +1,15 @@
+{
+  "name": "Jarvis",
+  "short_name": "Jarvis",
+  "description": "Personal assistant powered by Claude",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#06161d",
+  "theme_color": "#06161d",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icon.svg", "sizes": "512x512", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
